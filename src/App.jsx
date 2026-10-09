@@ -2,11 +2,11 @@ import { useState } from "react";
 import "./App.css";
 
 function App() {
-  const [temperature, setTemperature] = useState(38);
-  const [humidity, setHumidity] = useState(65);
-  const [rain, setRain] = useState(0);
-  const [windSpeed, setWindSpeed] = useState(4);
-  const [solarRadiation, setSolarRadiation] = useState(800);
+  const [temperature, setTemperature] = useState("38");
+  const [humidity, setHumidity] = useState("65");
+  const [rain, setRain] = useState("0");
+  const [windSpeed, setWindSpeed] = useState("4");
+  const [solarRadiation, setSolarRadiation] = useState("800");
 
   const [climateTime, setClimateTime] = useState("Updated just now");
   const [prediction, setPrediction] = useState(null);
@@ -35,6 +35,15 @@ function App() {
     "hot",
   ];
 
+  const applyClimateData = (data) => {
+    setTemperature(String(data.temperature));
+    setHumidity(String(data.humidity));
+    setRain(String(data.rain));
+    setWindSpeed(String(data.wind_speed));
+    setSolarRadiation(String(data.solar_radiation));
+    setClimateTime(data.time);
+  };
+
   const loadClimate = async () => {
     setLoadingClimate(true);
     setError("");
@@ -49,13 +58,7 @@ function App() {
       }
 
       const data = await response.json();
-
-      setTemperature(data.temperature);
-      setHumidity(data.humidity);
-      setRain(data.rain);
-      setWindSpeed(data.wind_speed);
-      setSolarRadiation(data.solar_radiation);
-      setClimateTime(data.time);
+      applyClimateData(data);
     } catch (err) {
       console.error("Unable to load climate data", err);
       setError(
@@ -67,20 +70,27 @@ function App() {
   };
 
   const predictHeatRisk = async () => {
+    const climateValues = [
+      temperature,
+      humidity,
+      rain,
+      windSpeed,
+      solarRadiation,
+    ];
+
+    if (
+      climateValues.some(
+        (value) => value.trim() === "" || !Number.isFinite(Number(value))
+      )
+    ) {
+      setError("Enter a valid number for each climate condition.");
+      return;
+    }
+
     setLoadingPrediction(true);
     setError("");
 
     try {
-      const climateResponse = await fetch(
-        "http://127.0.0.1:8000/current-climate"
-      );
-
-      if (!climateResponse.ok) {
-        throw new Error("Unable to load climate data");
-      }
-
-      const climate = await climateResponse.json();
-
       const response = await fetch(
         "http://127.0.0.1:8000/predict",
         {
@@ -89,15 +99,18 @@ function App() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            temperature: climate.temperature,
-            humidity: climate.humidity,
-            rain: climate.rain,
-            wind_speed: climate.wind_speed,
-            solar_radiation: climate.solar_radiation,
-            hour: climate.hour,
-            month: climate.month,
-            day_of_year: climate.day_of_year,
-            is_daytime: climate.is_daytime,
+            temperature: Number(temperature),
+            humidity: Number(humidity),
+            rain: Number(rain),
+            wind_speed: Number(windSpeed),
+            solar_radiation: Number(solarRadiation),
+            hour: new Date().getHours(),
+            month: new Date().getMonth() + 1,
+            day_of_year: Math.floor(
+              (new Date() - new Date(new Date().getFullYear(), 0, 0)) /
+                86400000
+            ),
+            is_daytime: new Date().getHours() >= 6 && new Date().getHours() <= 18 ? 1 : 0,
           }),
         }
       );
@@ -107,13 +120,6 @@ function App() {
       }
 
       const result = await response.json();
-
-      setTemperature(climate.temperature);
-      setHumidity(climate.humidity);
-      setRain(climate.rain);
-      setWindSpeed(climate.wind_speed);
-      setSolarRadiation(climate.solar_radiation);
-      setClimateTime(climate.time);
       setPrediction(result);
     } catch (err) {
       console.error("Prediction request failed", err);
@@ -123,6 +129,10 @@ function App() {
     } finally {
       setLoadingPrediction(false);
     }
+  };
+
+  const handleNumericChange = (setter) => (event) => {
+    setter(event.target.value);
   };
 
   const getRiskClass = (risk) => {
@@ -271,7 +281,7 @@ function App() {
               <input
                 type="number"
                 value={temperature}
-                readOnly
+                onChange={handleNumericChange(setTemperature)}
               />
             </label>
 
@@ -280,7 +290,7 @@ function App() {
               <input
                 type="number"
                 value={humidity}
-                readOnly
+                onChange={handleNumericChange(setHumidity)}
               />
             </label>
 
@@ -289,7 +299,7 @@ function App() {
               <input
                 type="number"
                 value={rain}
-                readOnly
+                onChange={handleNumericChange(setRain)}
               />
             </label>
 
@@ -298,7 +308,7 @@ function App() {
               <input
                 type="number"
                 value={windSpeed}
-                readOnly
+                onChange={handleNumericChange(setWindSpeed)}
               />
             </label>
 
@@ -307,7 +317,7 @@ function App() {
               <input
                 type="number"
                 value={solarRadiation}
-                readOnly
+                onChange={handleNumericChange(setSolarRadiation)}
               />
             </label>
           </div>
@@ -317,6 +327,15 @@ function App() {
               {loadingClimate
                 ? "Loading..."
                 : "🌤️ Load Hyderabad Climate"}
+            </button>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={loadClimate}
+              disabled={loadingClimate}
+            >
+              {loadingClimate ? "Loading..." : "Reset to live climate"}
             </button>
 
             <button

@@ -58,21 +58,28 @@ def predict(data: ClimateData):
         "is_daytime": data.is_daytime
     }])
 
-    prediction = model.predict(input_data)[0]
-
     probabilities = model.predict_proba(input_data)[0]
+    prediction = str(model.predict(input_data)[0])
     confidence = max(probabilities) * 100
 
-    risk_scores = {
-        "Low": 25,
-        "Moderate": 50,
-        "High": 75,
-        "Critical": 95
+    risk_levels = {
+        "Low": 0,
+        "Moderate": 100 / 3,
+        "High": 200 / 3,
+        "Critical": 100,
     }
+    risk_score = sum(
+        probability * risk_levels[str(risk)]
+        for risk, probability in zip(model.classes_, probabilities)
+    )
+
+    if data.temperature > 50:
+        prediction = "High"
+        risk_score = max(risk_score, risk_levels["High"])
 
     return {
-        "risk": str(prediction),
-        "risk_score": risk_scores[str(prediction)],
+        "risk": prediction,
+        "risk_score": round(risk_score, 2),
         "confidence": round(confidence, 2)
     }
 
